@@ -44,13 +44,21 @@ const WISHLIST_KEY = "hs-fabrics-wishlist";
 const MAX_QUANTITY = 10;
 
 /* ---------------------------------
-   PRICE
+   PRICE PARSER
 ---------------------------------- */
 
-function parsePrice(price: string | number): number {
-  const value = Number(
-    String(price).replace(/[^\d.]/g, "")
-  );
+function parsePrice(price: string | number | undefined): number {
+  if (price === undefined || price === null) {
+    return 0;
+  }
+
+  const cleaned = String(price)
+    .replace(/Rs\.?/gi, "")
+    .replace(/PKR/gi, "")
+    .replace(/\s/g, "")
+    .replace(/,/g, "");
+
+  const value = Number(cleaned);
 
   return Number.isFinite(value) ? value : 0;
 }
@@ -345,9 +353,10 @@ export function CartProvider({
       const currentProduct =
         getProductBySlug(item.slug);
 
-      const price = parsePrice(
-        currentProduct?.price || item.price
-      );
+      const productPrice =
+        currentProduct?.price ?? item.price;
+
+      const price = parsePrice(productPrice);
 
       const quantity = Math.min(
         MAX_QUANTITY,
