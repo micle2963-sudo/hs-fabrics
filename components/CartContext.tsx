@@ -47,13 +47,10 @@ const MAX_QUANTITY = 10;
    PRICE
 ---------------------------------- */
 
-function parsePrice(price: string | number) {
-  const cleaned = String(price)
-    .replace(/Rs\.?/gi, "")
-    .replace(/,/g, "")
-    .trim();
-
-  const value = Number(cleaned);
+function parsePrice(price: string | number): number {
+  const value = Number(
+    String(price).replace(/[^\d.]/g, "")
+  );
 
   return Number.isFinite(value) ? value : 0;
 }
@@ -86,8 +83,7 @@ export function CartProvider({
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem(CART_KEY);
-      const savedWishlist =
-        localStorage.getItem(WISHLIST_KEY);
+      const savedWishlist = localStorage.getItem(WISHLIST_KEY);
 
       if (savedCart) {
         const parsed = JSON.parse(savedCart);
@@ -102,21 +98,11 @@ export function CartProvider({
                 typeof item.quantity === "number"
             )
             .map((item) => {
-              /*
-                IMPORTANT:
-                Always get the current price from products.ts.
-                This prevents old/wrong localStorage prices.
-              */
-
-              const currentProduct = getProductBySlug(
-                item.slug
-              );
+              const currentProduct = getProductBySlug(item.slug);
 
               return {
                 slug: item.slug,
-                name:
-                  currentProduct?.name ||
-                  item.name,
+                name: currentProduct?.name || item.name,
                 price:
                   currentProduct?.price ||
                   item.price ||
@@ -140,8 +126,7 @@ export function CartProvider({
       }
 
       if (savedWishlist) {
-        const parsedWishlist =
-          JSON.parse(savedWishlist);
+        const parsedWishlist = JSON.parse(savedWishlist);
 
         if (Array.isArray(parsedWishlist)) {
           setWishlist(
@@ -201,10 +186,6 @@ export function CartProvider({
           getKey(item.slug, item.size) === key
       );
 
-      /*
-        Always get the REAL current product
-        from data/products.ts.
-      */
       const currentProduct = getProductBySlug(
         product.slug
       );
@@ -361,23 +342,19 @@ export function CartProvider({
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
-      /*
-        Get price AGAIN from products.ts.
-        This makes checkout total reliable even
-        if old localStorage data exists.
-      */
-
       const currentProduct =
         getProductBySlug(item.slug);
 
       const price = parsePrice(
-        currentProduct?.price ||
-          item.price
+        currentProduct?.price || item.price
       );
 
-      const quantity = Math.max(
-        1,
-        Math.floor(item.quantity)
+      const quantity = Math.min(
+        MAX_QUANTITY,
+        Math.max(
+          1,
+          Math.floor(item.quantity)
+        )
       );
 
       return total + price * quantity;
