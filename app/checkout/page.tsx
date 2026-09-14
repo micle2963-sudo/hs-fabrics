@@ -1,14 +1,27 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { useCart } from "../../components/CartContext";
 import { CONTACT } from "../../data/products";
 
-function parsePrice(price: string) {
-  const value = Number(price.replace(/[^\d.]/g, ""));
+function parsePrice(price: string | number | undefined): number {
+  if (price === undefined || price === null) {
+    return 0;
+  }
+
+  const cleaned = String(price)
+    .replace(/Rs\.?/gi, "")
+    .replace(/PKR/gi, "")
+    .replace(/,/g, "")
+    .trim();
+
+  const value = Number(cleaned);
+
   return Number.isFinite(value) ? value : 0;
 }
 
@@ -19,13 +32,21 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
-
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState("");
 
+  const calculatedTotal = cart.reduce((total, item) => {
+    const price = parsePrice(item.price);
+    return total + price * item.quantity;
+  }, 0);
+
+  const finalTotal =
+    calculatedTotal > 0 ? calculatedTotal : cartTotal;
+
   const submitOrder = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     setError("");
 
     const cleanName = name.trim();
@@ -33,14 +54,18 @@ export default function CheckoutPage() {
     const cleanCity = city.trim();
     const cleanAddress = address.trim();
 
-    if (!cleanName || !cleanPhone || !cleanCity || !cleanAddress) {
+    if (
+      !cleanName ||
+      !cleanPhone ||
+      !cleanCity ||
+      !cleanAddress
+    ) {
       setError("Please complete all required fields.");
       return;
     }
 
-    const phoneValid = /^(?:\+92|0092|92|03)\d{9,10}$/.test(
-      cleanPhone
-    );
+    const phoneValid =
+      /^(?:\+92|0092|92|03)\d{9,10}$/.test(cleanPhone);
 
     if (!phoneValid) {
       setError("Please enter a valid Pakistani phone number.");
@@ -54,11 +79,13 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
 
-    const newOrderId = `HS-${Date.now().toString().slice(-8)}`;
+    const newOrderId = `HS-${Date.now()
+      .toString()
+      .slice(-8)}`;
 
     const lines = cart.map((item) => {
-      const lineTotal =
-        parsePrice(item.price) * item.quantity;
+      const price = parsePrice(item.price);
+      const lineTotal = price * item.quantity;
 
       return [
         `• ${item.name}`,
@@ -82,17 +109,21 @@ export default function CheckoutPage() {
       `*Order Items*`,
       ...lines,
       ``,
-      `*Total: Rs. ${cartTotal.toLocaleString("en-PK")}*`,
+      `*Total: Rs. ${finalTotal.toLocaleString("en-PK")}*`,
       `Payment: Cash on Delivery`,
       ``,
       `Delivery: All over Pakistan`,
     ].join("\n");
 
-    const whatsappUrl = `https://wa.me/${CONTACT.whatsappNumber}?text=${encodeURIComponent(
-      message
-    )}`;
+    const whatsappUrl = `https://wa.me/${
+      CONTACT.whatsappNumber
+    }?text=${encodeURIComponent(message)}`;
 
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    window.open(
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
 
     setOrderId(newOrderId);
     clearCart();
@@ -127,15 +158,19 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="mt-5 text-sm leading-7 text-black/55">
-              Your order request has been prepared for WhatsApp. Please
-              complete the WhatsApp conversation to confirm your order.
+              Your order request has been prepared for WhatsApp.
+              Please complete the WhatsApp conversation to confirm
+              your order.
             </p>
 
             <div className="mt-7 border border-black/10 bg-white p-5">
               <p className="text-[9px] uppercase tracking-[0.2em] text-black/40">
                 Order ID
               </p>
-              <p className="mt-2 text-lg font-semibold">{orderId}</p>
+
+              <p className="mt-2 text-lg font-semibold">
+                {orderId}
+              </p>
             </div>
 
             <Link
@@ -236,7 +271,9 @@ export default function CheckoutPage() {
 
                       <textarea
                         value={address}
-                        onChange={(event) => setAddress(event.target.value)}
+                        onChange={(event) =>
+                          setAddress(event.target.value)
+                        }
                         placeholder="House / street / area / landmark"
                         rows={4}
                         className="mt-3 w-full resize-none border border-black/10 bg-white px-4 py-3.5 text-sm transition focus:border-black/30"
@@ -284,7 +321,8 @@ export default function CheckoutPage() {
                 </button>
 
                 <p className="mt-4 text-center text-[9px] leading-5 text-black/35">
-                  Your order details will open in WhatsApp for confirmation.
+                  Your order details will open in WhatsApp for
+                  confirmation.
                 </p>
               </div>
 
@@ -325,9 +363,12 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="mt-5 flex items-center justify-between border-t border-black/10 pt-5">
-                  <span className="text-sm font-medium">Total</span>
+                  <span className="text-sm font-medium">
+                    Total
+                  </span>
+
                   <span className="text-lg font-semibold">
-                    Rs. {cartTotal.toLocaleString("en-PK")}
+                    Rs. {finalTotal.toLocaleString("en-PK")}
                   </span>
                 </div>
 
@@ -335,6 +376,7 @@ export default function CheckoutPage() {
                   <p className="text-[9px] font-semibold uppercase tracking-[0.15em]">
                     Delivery
                   </p>
+
                   <p className="mt-1 text-[10px] leading-5 text-black/45">
                     Delivery all over Pakistan.
                   </p>
