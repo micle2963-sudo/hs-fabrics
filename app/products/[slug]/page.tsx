@@ -1,7 +1,6 @@
-
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "../../../components/Header";
@@ -20,6 +19,15 @@ export default function ProductDetailPage({
   const product = getProductBySlug(slug);
   const { addToCart, toggleWishlist, isWishlisted } = useCart();
 
+  // Always start product page from the top
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "instant",
+    });
+  }, [slug]);
+
   const [selectedSize, setSelectedSize] = useState(
     product?.sizes?.[0] || ""
   );
@@ -36,7 +44,7 @@ export default function ProductDetailPage({
       <>
         <Header />
 
-        <main className="flex min-h-[70vh] items-center justify-center px-5">
+        <main className="flex min-h-[70vh] items-center justify-center bg-[#f8f7f3] px-5">
           <div className="text-center">
             <p className="text-[9px] uppercase tracking-[0.3em] text-black/40">
               Product not found
@@ -126,7 +134,6 @@ export default function ProductDetailPage({
         </div>
 
         <section className="mx-auto grid max-w-[1440px] gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-12 lg:py-14">
-          {/* Image */}
           <div className="relative aspect-[4/5] overflow-hidden bg-[#ecebe6]">
             <img
               src={product.image}
@@ -141,7 +148,6 @@ export default function ProductDetailPage({
             )}
           </div>
 
-          {/* Details */}
           <div className="flex flex-col justify-center lg:py-8">
             <p className="text-[9px] font-medium uppercase tracking-[0.25em] text-black/40">
               {product.gender} · {product.type}
@@ -161,7 +167,6 @@ export default function ProductDetailPage({
               {product.description}
             </p>
 
-            {/* Color */}
             <div className="mt-8">
               <p className="text-[9px] font-semibold uppercase tracking-[0.18em]">
                 Color
@@ -172,7 +177,6 @@ export default function ProductDetailPage({
               </p>
             </div>
 
-            {/* Sizes */}
             <div className="mt-7">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em]">
@@ -205,7 +209,6 @@ export default function ProductDetailPage({
               </div>
             </div>
 
-            {/* Quantity */}
             <div className="mt-7">
               <p className="text-[9px] font-semibold uppercase tracking-[0.18em]">
                 Quantity
@@ -238,7 +241,6 @@ export default function ProductDetailPage({
               </div>
             </div>
 
-            {/* Actions */}
             <div className="mt-8 grid gap-2 sm:grid-cols-[1fr_auto]">
               <button
                 type="button"
@@ -257,7 +259,6 @@ export default function ProductDetailPage({
               </button>
             </div>
 
-            {/* Wishlist */}
             <button
               type="button"
               onClick={() => toggleWishlist(product.slug)}
@@ -276,7 +277,6 @@ export default function ProductDetailPage({
               </p>
             )}
 
-            {/* Info cards */}
             <div className="mt-8 grid grid-cols-3 gap-px border border-black/10 bg-black/10">
               <Info title="Delivery" text="Pakistan wide" />
               <Info title="Payment" text="Cash on delivery" />
@@ -285,7 +285,6 @@ export default function ProductDetailPage({
           </div>
         </section>
 
-        {/* Related */}
         {related.length > 0 && (
           <section className="border-t border-black/10 bg-white px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
             <div className="mx-auto max-w-[1440px]">
