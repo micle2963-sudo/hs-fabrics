@@ -16,6 +16,10 @@ type UserData = {
   profileImage?: string;
 };
 
+type StoredAccount = UserData & {
+  password: string;
+};
+
 function CameraIcon() {
   return (
     <svg
@@ -89,8 +93,40 @@ function SettingsIcon() {
   );
 }
 
+function UserIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      className="h-5 w-5"
+    >
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c.8-3.5 3.1-5.5 7-5.5s6.2 2 7 5.5" />
+    </svg>
+  );
+}
+
 export default function AccountPage() {
   const [user, setUser] = useState<UserData | null>(null);
+
+  const [authMode, setAuthMode] = useState<"login" | "signup">(
+    "login"
+  );
+
+  const [authName, setAuthName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authConfirmPassword, setAuthConfirmPassword] =
+    useState("");
+
+  const [authMessage, setAuthMessage] = useState("");
+  const [authMessageType, setAuthMessageType] = useState<
+    "success" | "error" | ""
+  >("");
+
+  const [authLoading, setAuthLoading] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -105,30 +141,265 @@ export default function AccountPage() {
 
   const [saving, setSaving] = useState(false);
 
+  /* ================= LOAD USER ================= */
+
   useEffect(() => {
-    const savedUser = localStorage.getItem("hs-fabrics-user");
-    const loggedIn = localStorage.getItem("hs-fabrics-logged-in");
+    const loadUser = () => {
+      const savedUser = localStorage.getItem("hs-fabrics-user");
+      const loggedIn = localStorage.getItem(
+        "hs-fabrics-logged-in"
+      );
 
-    if (savedUser && loggedIn === "true") {
-      try {
-        const parsedUser: UserData = JSON.parse(savedUser);
+      if (savedUser && loggedIn === "true") {
+        try {
+          const parsedUser: UserData = JSON.parse(savedUser);
 
-        setUser(parsedUser);
-        setEditName(parsedUser.name);
-        setEditEmail(parsedUser.email);
-        setEditImage(parsedUser.profileImage || "");
-      } catch {
-        localStorage.removeItem("hs-fabrics-user");
-        localStorage.removeItem("hs-fabrics-logged-in");
+          setUser(parsedUser);
+          setEditName(parsedUser.name || "");
+          setEditEmail(parsedUser.email || "");
+          setEditImage(parsedUser.profileImage || "");
+        } catch {
+          localStorage.removeItem("hs-fabrics-user");
+          localStorage.removeItem("hs-fabrics-logged-in");
+          setUser(null);
+        }
+      } else {
+        setUser(null);
       }
-    }
+    };
+
+    loadUser();
   }, []);
+
+  /* ================= HEADER UPDATE ================= */
 
   const notifyHeader = () => {
     window.dispatchEvent(
       new Event("hs-fabrics-user-updated")
     );
   };
+
+  /* ================= AUTH MODE ================= */
+
+  const switchAuthMode = (
+    mode: "login" | "signup"
+  ) => {
+    setAuthMode(mode);
+    setAuthMessage("");
+    setAuthMessageType("");
+
+    setAuthName("");
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthConfirmPassword("");
+  };
+
+  /* ================= LOGIN ================= */
+
+  const handleLogin = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword;
+
+    if (!email || !password) {
+      setAuthMessage(
+        "Please enter your email and password."
+      );
+      setAuthMessageType("error");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    try {
+      const savedAccount =
+        localStorage.getItem("hs-fabrics-account");
+
+      if (!savedAccount) {
+        setAuthMessage(
+          "No account found. Please create an account first."
+        );
+        setAuthMessageType("error");
+        setAuthLoading(false);
+        return;
+      }
+
+      const account: StoredAccount =
+        JSON.parse(savedAccount);
+
+      if (
+        account.email.toLowerCase() !== email ||
+        account.password !== password
+      ) {
+        setAuthMessage(
+          "Incorrect email or password. Please try again."
+        );
+        setAuthMessageType("error");
+        setAuthLoading(false);
+        return;
+      }
+
+      const loggedUser: UserData = {
+        name: account.name,
+        email: account.email,
+        profileImage: account.profileImage,
+      };
+
+      localStorage.setItem(
+        "hs-fabrics-user",
+        JSON.stringify(loggedUser)
+      );
+
+      localStorage.setItem(
+        "hs-fabrics-logged-in",
+        "true"
+      );
+
+      setUser(loggedUser);
+
+      setEditName(loggedUser.name);
+      setEditEmail(loggedUser.email);
+      setEditImage(loggedUser.profileImage || "");
+
+      notifyHeader();
+
+      setAuthMessage("Welcome back!");
+      setAuthMessageType("success");
+
+      setTimeout(() => {
+        setAuthMessage("");
+        setAuthMessageType("");
+      }, 700);
+    } catch {
+      setAuthMessage(
+        "Something went wrong. Please try again."
+      );
+      setAuthMessageType("error");
+    }
+
+    setAuthLoading(false);
+  };
+
+  /* ================= SIGNUP ================= */
+
+  const handleSignup = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const name = authName.trim();
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword;
+
+    if (!name || !email || !password) {
+      setAuthMessage(
+        "Please fill in all required fields."
+      );
+      setAuthMessageType("error");
+      return;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      setAuthMessage(
+        "Please enter a valid email address."
+      );
+      setAuthMessageType("error");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthMessage(
+        "Password must be at least 6 characters."
+      );
+      setAuthMessageType("error");
+      return;
+    }
+
+    if (password !== authConfirmPassword) {
+      setAuthMessage(
+        "Passwords do not match."
+      );
+      setAuthMessageType("error");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    try {
+      const existingAccount =
+        localStorage.getItem("hs-fabrics-account");
+
+      if (existingAccount) {
+        const account: StoredAccount =
+          JSON.parse(existingAccount);
+
+        if (
+          account.email.toLowerCase() === email
+        ) {
+          setAuthMessage(
+            "An account with this email already exists. Please login."
+          );
+          setAuthMessageType("error");
+          setAuthLoading(false);
+          return;
+        }
+      }
+
+      const newAccount: StoredAccount = {
+        name,
+        email,
+        password,
+      };
+
+      const newUser: UserData = {
+        name,
+        email,
+      };
+
+      localStorage.setItem(
+        "hs-fabrics-account",
+        JSON.stringify(newAccount)
+      );
+
+      localStorage.setItem(
+        "hs-fabrics-user",
+        JSON.stringify(newUser)
+      );
+
+      localStorage.setItem(
+        "hs-fabrics-logged-in",
+        "true"
+      );
+
+      setUser(newUser);
+
+      setEditName(name);
+      setEditEmail(email);
+      setEditImage("");
+
+      notifyHeader();
+
+      setAuthMessage(
+        "Account created successfully!"
+      );
+      setAuthMessageType("success");
+
+      setAuthName("");
+      setAuthEmail("");
+      setAuthPassword("");
+      setAuthConfirmPassword("");
+    } catch {
+      setAuthMessage(
+        "Unable to create account. Please try again."
+      );
+      setAuthMessageType("error");
+    }
+
+    setAuthLoading(false);
+  };
+
+  /* ================= SETTINGS ================= */
 
   const openSettings = () => {
     if (!user) return;
@@ -154,6 +425,8 @@ export default function AccountPage() {
     setSettingsOpen(false);
   };
 
+  /* ================= PROFILE IMAGE ================= */
+
   const handleProfileImage = (
     e: ChangeEvent<HTMLInputElement>
   ) => {
@@ -168,7 +441,9 @@ export default function AccountPage() {
     }
 
     if (file.size > 3 * 1024 * 1024) {
-      setMessage("Please choose an image smaller than 3MB.");
+      setMessage(
+        "Please choose an image smaller than 3MB."
+      );
       setMessageType("error");
       return;
     }
@@ -185,7 +460,11 @@ export default function AccountPage() {
     reader.readAsDataURL(file);
   };
 
-  const saveSettings = (e: FormEvent<HTMLFormElement>) => {
+  /* ================= SAVE SETTINGS ================= */
+
+  const saveSettings = (
+    e: FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     if (!user) return;
@@ -194,13 +473,20 @@ export default function AccountPage() {
     const cleanEmail = editEmail.trim().toLowerCase();
 
     if (!cleanName || !cleanEmail) {
-      setMessage("Name and email cannot be empty.");
+      setMessage(
+        "Name and email cannot be empty."
+      );
       setMessageType("error");
       return;
     }
 
-    if (!cleanEmail.includes("@")) {
-      setMessage("Please enter a valid email address.");
+    if (
+      !cleanEmail.includes("@") ||
+      !cleanEmail.includes(".")
+    ) {
+      setMessage(
+        "Please enter a valid email address."
+      );
       setMessageType("error");
       return;
     }
@@ -208,15 +494,43 @@ export default function AccountPage() {
     setSaving(true);
     setMessage("");
 
+    let password = "";
+
+    const oldAccountString =
+      localStorage.getItem("hs-fabrics-account");
+
+    if (oldAccountString) {
+      try {
+        const oldAccount: StoredAccount =
+          JSON.parse(oldAccountString);
+
+        password = oldAccount.password || "";
+      } catch {
+        password = "";
+      }
+    }
+
     const updatedUser: UserData = {
       name: cleanName,
       email: cleanEmail,
       profileImage: editImage || undefined,
     };
 
+    const updatedAccount: StoredAccount = {
+      name: cleanName,
+      email: cleanEmail,
+      password,
+      profileImage: editImage || undefined,
+    };
+
     localStorage.setItem(
       "hs-fabrics-user",
       JSON.stringify(updatedUser)
+    );
+
+    localStorage.setItem(
+      "hs-fabrics-account",
+      JSON.stringify(updatedAccount)
     );
 
     localStorage.setItem(
@@ -232,7 +546,9 @@ export default function AccountPage() {
 
     notifyHeader();
 
-    setMessage("Your changes have been saved successfully.");
+    setMessage(
+      "Your changes have been saved successfully."
+    );
     setMessageType("success");
 
     setSaving(false);
@@ -244,48 +560,247 @@ export default function AccountPage() {
     }, 1200);
   };
 
+  /* ================= LOGOUT ================= */
+
   const handleLogout = () => {
-    localStorage.removeItem("hs-fabrics-logged-in");
+    localStorage.removeItem(
+      "hs-fabrics-logged-in"
+    );
 
     setUser(null);
     setSettingsOpen(false);
-    setMessage("");
-    setMessageType("");
+
+    setAuthMode("login");
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthName("");
+    setAuthConfirmPassword("");
+
+    setAuthMessage("");
+    setAuthMessageType("");
 
     notifyHeader();
   };
+
+  /* =========================================================
+     LOGIN / SIGNUP SCREEN
+     ========================================================= */
 
   if (!user) {
     return (
       <>
         <Header />
 
-        <main className="min-h-screen bg-[#f5f3ee] px-4 py-16">
-          <div className="mx-auto max-w-md">
-            <div className="rounded-[28px] border border-black/[0.08] bg-white p-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.06)] sm:p-10">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#121212] text-[#D4C29A]">
-                <SettingsIcon />
+        <main className="min-h-[calc(100vh-108px)] bg-[#f5f3ee] px-4 py-8 sm:px-6 sm:py-12">
+          <div className="mx-auto flex min-h-[calc(100vh-180px)] max-w-md items-start justify-center">
+
+            <div className="w-full overflow-hidden rounded-[30px] border border-black/[0.08] bg-white shadow-[0_25px_70px_rgba(0,0,0,0.07)]">
+
+              {/* Premium top */}
+              <div className="relative overflow-hidden bg-[#121212] px-6 py-8 text-center sm:px-10 sm:py-9">
+
+                <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full border border-[#B8975A]/15" />
+
+                <div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full border border-[#B8975A]/10" />
+
+                <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#D4C29A]/30 bg-[#202020] text-[#D4C29A] shadow-[0_0_0_8px_rgba(184,151,90,0.06)]">
+                  <UserIcon />
+                </div>
+
+                <p className="relative mt-5 text-[9px] font-semibold uppercase tracking-[0.32em] text-[#D4C29A]">
+                  HS Fabrics
+                </p>
+
+                <h1 className="relative mt-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+                  {authMode === "login"
+                    ? "Welcome Back"
+                    : "Create Your Account"}
+                </h1>
+
+                <p className="relative mx-auto mt-2 max-w-xs text-xs leading-5 text-white/45">
+                  {authMode === "login"
+                    ? "Sign in to continue your premium shopping experience."
+                    : "Join HS Fabrics and make your shopping experience personal."}
+                </p>
               </div>
 
-              <p className="mt-6 text-[9px] font-semibold uppercase tracking-[0.3em] text-[#B8975A]">
-                HS Fabrics
-              </p>
+              {/* Tabs */}
+              <div className="grid grid-cols-2 border-b border-black/[0.07] p-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    switchAuthMode("login")
+                  }
+                  className={`rounded-xl px-4 py-3 text-xs font-semibold transition ${
+                    authMode === "login"
+                      ? "bg-[#121212] text-white"
+                      : "text-black/45 hover:bg-black/[0.03] hover:text-black"
+                  }`}
+                >
+                  Login
+                </button>
 
-              <h1 className="mt-2 text-2xl font-semibold text-[#121212]">
-                Account Login Required
-              </h1>
+                <button
+                  type="button"
+                  onClick={() =>
+                    switchAuthMode("signup")
+                  }
+                  className={`rounded-xl px-4 py-3 text-xs font-semibold transition ${
+                    authMode === "signup"
+                      ? "bg-[#121212] text-white"
+                      : "text-black/45 hover:bg-black/[0.03] hover:text-black"
+                  }`}
+                >
+                  Create Account
+                </button>
+              </div>
 
-              <p className="mt-3 text-sm leading-6 text-black/45">
-                Please login or create an account to view your
-                profile.
-              </p>
-
-              <Link
-                href="/account"
-                className="mt-7 block rounded-xl bg-[#121212] px-5 py-3.5 text-center text-sm font-medium text-white transition hover:bg-[#292929]"
+              {/* Form */}
+              <form
+                onSubmit={
+                  authMode === "login"
+                    ? handleLogin
+                    : handleSignup
+                }
+                className="p-6 sm:p-8"
               >
-                Go to Account
-              </Link>
+                {authMode === "signup" && (
+                  <div className="mb-5">
+                    <label
+                      htmlFor="auth-name"
+                      className="mb-2 block text-xs font-semibold text-[#121212]"
+                    >
+                      Full Name
+                    </label>
+
+                    <input
+                      id="auth-name"
+                      type="text"
+                      autoComplete="name"
+                      value={authName}
+                      onChange={(e) =>
+                        setAuthName(e.target.value)
+                      }
+                      placeholder="Enter your full name"
+                      className="w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3.5 text-sm outline-none transition placeholder:text-black/25 focus:border-[#B8975A] focus:bg-white focus:ring-2 focus:ring-[#B8975A]/10"
+                    />
+                  </div>
+                )}
+
+                <div className="mb-5">
+                  <label
+                    htmlFor="auth-email"
+                    className="mb-2 block text-xs font-semibold text-[#121212]"
+                  >
+                    Email Address
+                  </label>
+
+                  <input
+                    id="auth-email"
+                    type="email"
+                    autoComplete="email"
+                    value={authEmail}
+                    onChange={(e) =>
+                      setAuthEmail(e.target.value)
+                    }
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3.5 text-sm outline-none transition placeholder:text-black/25 focus:border-[#B8975A] focus:bg-white focus:ring-2 focus:ring-[#B8975A]/10"
+                  />
+                </div>
+
+                <div className="mb-5">
+                  <label
+                    htmlFor="auth-password"
+                    className="mb-2 block text-xs font-semibold text-[#121212]"
+                  >
+                    Password
+                  </label>
+
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={
+                      authMode === "login"
+                        ? "current-password"
+                        : "new-password"
+                    }
+                    value={authPassword}
+                    onChange={(e) =>
+                      setAuthPassword(e.target.value)
+                    }
+                    placeholder="Enter your password"
+                    className="w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3.5 text-sm outline-none transition placeholder:text-black/25 focus:border-[#B8975A] focus:bg-white focus:ring-2 focus:ring-[#B8975A]/10"
+                  />
+                </div>
+
+                {authMode === "signup" && (
+                  <div className="mb-6">
+                    <label
+                      htmlFor="auth-confirm-password"
+                      className="mb-2 block text-xs font-semibold text-[#121212]"
+                    >
+                      Confirm Password
+                    </label>
+
+                    <input
+                      id="auth-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={authConfirmPassword}
+                      onChange={(e) =>
+                        setAuthConfirmPassword(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Confirm your password"
+                      className="w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3.5 text-sm outline-none transition placeholder:text-black/25 focus:border-[#B8975A] focus:bg-white focus:ring-2 focus:ring-[#B8975A]/10"
+                    />
+
+                    <p className="mt-2 text-[10px] text-black/35">
+                      Password should contain at least 6 characters.
+                    </p>
+                  </div>
+                )}
+
+                {authMessage && (
+                  <div
+                    className={`mb-5 rounded-xl px-4 py-3 text-center text-xs leading-5 ${
+                      authMessageType === "success"
+                        ? "bg-green-50 text-green-700"
+                        : "bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {authMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-xl bg-[#121212] px-5 py-3.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#292929] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authLoading
+                    ? "Please wait..."
+                    : authMode === "login"
+                    ? "Login to Account"
+                    : "Create Account"}
+                </button>
+
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+
+                  <span className="text-[9px] uppercase tracking-[0.18em] text-black/25">
+                    HS Fabrics
+                  </span>
+
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+                </div>
+
+                <p className="mt-5 text-center text-[10px] leading-5 text-black/35">
+                  Your account details are saved on this
+                  device for a smoother shopping experience.
+                </p>
+              </form>
             </div>
           </div>
         </main>
@@ -295,6 +810,10 @@ export default function AccountPage() {
     );
   }
 
+  /* =========================================================
+     LOGGED IN ACCOUNT
+     ========================================================= */
+
   const initial =
     user.name?.trim().charAt(0).toUpperCase() || "U";
 
@@ -302,10 +821,10 @@ export default function AccountPage() {
     <>
       <Header />
 
-      <main className="min-h-screen bg-[#f5f3ee] px-4 py-10 pb-20 sm:px-6 lg:px-10">
+      <main className="min-h-[calc(100vh-108px)] bg-[#f5f3ee] px-4 py-8 pb-16 sm:px-6 sm:py-10 lg:px-10">
         <div className="mx-auto max-w-5xl">
 
-          {/* Page heading */}
+          {/* Heading */}
           <div className="mb-8 text-center">
             <p className="text-[9px] font-semibold uppercase tracking-[0.35em] text-[#B8975A]">
               HS Fabrics
@@ -323,16 +842,14 @@ export default function AccountPage() {
           {/* Main account card */}
           <div className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
 
-            {/* Dark premium profile header */}
+            {/* Profile header */}
             <div className="relative overflow-hidden bg-[#121212] px-6 py-10 text-center sm:px-10 sm:py-12">
 
               <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full border border-[#B8975A]/20" />
 
               <div className="absolute -bottom-28 -left-20 h-64 w-64 rounded-full border border-[#B8975A]/10" />
 
-              {/* Profile image */}
               <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-full border-[3px] border-[#D4C29A] bg-[#202020] shadow-[0_0_0_7px_rgba(184,151,90,0.08)] sm:h-32 sm:w-32">
-
                 {user.profileImage ? (
                   <img
                     src={user.profileImage}
@@ -354,7 +871,6 @@ export default function AccountPage() {
                 {user.email}
               </p>
 
-              {/* Active badge */}
               <div className="relative mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-4 py-2">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#D4C29A] text-[#121212]">
                   <CheckIcon />
@@ -381,13 +897,13 @@ export default function AccountPage() {
                   </h3>
                 </div>
 
-                {/* Settings button */}
                 <button
                   type="button"
                   onClick={openSettings}
                   className="flex items-center gap-2 rounded-xl border border-black/10 px-4 py-2.5 text-xs font-medium text-[#121212] transition hover:border-[#B8975A]/50 hover:bg-[#faf8f2]"
                 >
                   <SettingsIcon />
+
                   <span className="hidden sm:inline">
                     Settings
                   </span>
@@ -484,9 +1000,9 @@ export default function AccountPage() {
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-black/45">
-                      Your profile information is saved securely on
-                      this device for a smoother HS Fabrics shopping
-                      experience.
+                      Your profile information is saved securely
+                      on this device for a smoother HS Fabrics
+                      shopping experience.
                     </p>
                   </div>
                 </div>
@@ -517,7 +1033,10 @@ export default function AccountPage() {
 
       <Footer />
 
-      {/* ================= SETTINGS MODAL ================= */}
+      {/* =====================================================
+          SETTINGS MODAL
+          ===================================================== */}
+
       {settingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm">
 
@@ -642,8 +1161,7 @@ export default function AccountPage() {
                 <p className="text-xs leading-5 text-black/50">
                   Changes will only be applied when you press
                   <span className="font-semibold text-[#121212]">
-                    {" "}
-                    Save Changes
+                    {" "}Save Changes
                   </span>
                   .
                 </p>
@@ -662,7 +1180,7 @@ export default function AccountPage() {
                 </div>
               )}
 
-              {/* Save / Cancel */}
+              {/* Buttons */}
               <div className="grid grid-cols-2 gap-3">
 
                 <button
@@ -679,7 +1197,9 @@ export default function AccountPage() {
                   disabled={saving}
                   className="rounded-xl bg-[#121212] px-4 py-3.5 text-sm font-medium text-white transition hover:bg-[#292929] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving
+                    ? "Saving..."
+                    : "Save Changes"}
                 </button>
 
               </div>
